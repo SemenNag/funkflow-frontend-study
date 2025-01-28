@@ -1,4 +1,13 @@
-#three-app {
+.three-app {
     width: 100vw;
     height: 100vh;
 }
+
+.add-building-button {
+    position: fixed;
+    left: 50%;
+    transform: translate(-50%);
+    bottom: 20px;
+    box-shadow: 0 20px 25px -5px black;
+}
+
