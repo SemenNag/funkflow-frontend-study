@@ -22,12 +22,10 @@ export class Ground {
 
   public render(scene: Scene) {
     const planeGeometry = new PlaneGeometry(this.width, this.height);
-    const planeMaterial = new MeshBasicMaterial({
-      color: 0xf8f9fa,
-    });
+    const planeMaterial = new MeshBasicMaterial({ color: 0xf8f9fa, side: 2 });
 
     const plane = new Mesh(planeGeometry, planeMaterial);
-    plane.position.set(0, 0, 0);
+    plane.position.set(0, -0.01, 0);
     plane.rotation.set(Math.PI / 2, 0, 0); // Rotate so that the plane lied on XZ plane
     scene.add(plane);
 
