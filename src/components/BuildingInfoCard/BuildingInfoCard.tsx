@@ -5,11 +5,34 @@ import { BuildingInfo, Dimension2D } from '../../types';
 interface BuildingInfoCardProps {
   coords: Dimension2D;
   isOpen: boolean;
-  buildingInfo: BuildingInfo;
+  buildingInfo?: BuildingInfo;
+  handleChangeBuildingSize: (uuid: string, size: Dimension2D) => void;
+  handleChangeBuildingFloors: (uuid: string, floors: number) => void;
+  handleChangeBuildingFloorsHeight: (uuid: string, floorsHeight: number) => void;
 }
 
-export function BuildingInfoCard({ coords, isOpen, buildingInfo }: BuildingInfoCardProps) {
-  if (!isOpen) return null;
+export function BuildingInfoCard({
+  coords,
+  isOpen,
+  buildingInfo,
+  handleChangeBuildingSize,
+  handleChangeBuildingFloors,
+  handleChangeBuildingFloorsHeight,
+ }: BuildingInfoCardProps) {
+  if (!isOpen || !buildingInfo) return null;
+
+  const handleChangeSizeX = (value: number | string) => {
+    handleChangeBuildingSize(buildingInfo.uuid, { x: Number(value), y: buildingInfo.size.y });
+  };
+  const handleChangeSizeY = (value: number | string) => {
+    handleChangeBuildingSize(buildingInfo.uuid, { x: buildingInfo.size.x, y: Number(value) });
+  };
+  const handleChangeFloors = (value: number | string) => {
+    handleChangeBuildingFloors(buildingInfo.uuid, Number(value));
+  };
+  const handleChangeFloorsHeight = (value: number | string) => {
+    handleChangeBuildingFloorsHeight(buildingInfo.uuid, Number(value));
+  };
 
   return (
     <Card
@@ -40,6 +63,8 @@ export function BuildingInfoCard({ coords, isOpen, buildingInfo }: BuildingInfoC
               flex="0 1"
               size="xs"
               styles={{ wrapper: { minWidth: '80px' } }}
+              onChange={handleChangeSizeX}
+              min={0}
             />
             <NumberInput
               value={buildingInfo.size.y}
@@ -47,6 +72,8 @@ export function BuildingInfoCard({ coords, isOpen, buildingInfo }: BuildingInfoC
               flex="0 1"
               size="xs"
               styles={{ wrapper: { minWidth: '80px' } }}
+              onChange={handleChangeSizeY}
+              min={0}
             />
           </Group>
         </Group>
@@ -60,6 +87,8 @@ export function BuildingInfoCard({ coords, isOpen, buildingInfo }: BuildingInfoC
             flex="0 1"
             size="xs"
             styles={{ wrapper: { minWidth: '80px' } }}
+            onChange={handleChangeFloors}
+            min={1}
           />
         </Group>
       </Card.Section>
@@ -72,6 +101,8 @@ export function BuildingInfoCard({ coords, isOpen, buildingInfo }: BuildingInfoC
             flex="0 1"
             size="xs"
             styles={{ wrapper: { minWidth: '80px' } }}
+            onChange={handleChangeFloorsHeight}
+            min={1}
           />
         </Group>
       </Card.Section>

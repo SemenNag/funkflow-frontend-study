@@ -52,7 +52,6 @@ export class Application {
   }
 
   private update() {
-    this.buildings.forEach((building) => building.update());
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
@@ -86,22 +85,25 @@ export class Application {
 
     raycaster.setFromCamera(mousePosition, this.camera);
 
-    const buildingObjects = this.buildings.map((building) => building.threeObject);
-    const intersections = raycaster.intersectObjects(buildingObjects);
+    const buildingObjects = this.buildings.map((building) => building.object);
+    const intersections = raycaster.intersectObjects(buildingObjects, true);
 
     if (intersections.length === 0) return;
 
-    const intersectedBuildings = intersections.map(({ object }) => object.parent).filter((obj) => !!obj);
-    // Squash all duplicated groups by Set and get the first one as the closest one
-    const intersectedBuildingObject = [...new Set(intersectedBuildings).values()][0];
-    const building = this.buildings.find((building) => building.threeObject.uuid === intersectedBuildingObject.uuid);
+    const intersectedBuildingIds = intersections
+      .filter(({ object }) => !!object.userData.isPartOfBuilding)
+      .map<string>(({ object }) => object.userData.buildingId);
+
+    // Squash all duplicated building ids by Set and get the first one as the closest one
+    const intersectedBuildingId = [...new Set(intersectedBuildingIds).values()][0];
+    const building = this.buildings.find((building) => building.object.uuid === intersectedBuildingId);
 
     this.activeBuilding = building ?? null;
 
     if (this.activeBuilding) {
       this.activeBuilding.setIsActive(true);
       const coords = convertToScreenPosition(
-        this.activeBuilding.threeObject,
+        this.activeBuilding.object,
         this.camera,
         this.renderer.domElement.clientWidth,
         this.renderer.domElement.clientHeight,
@@ -110,9 +112,34 @@ export class Application {
     }
   }
 
+  public setBuildingSize(uuid: string, size: Dimension2D) {
+    const building = this.buildings.find((building) => building.object.uuid === uuid);
+
+    if (!building) return;
+
+    building.setSize(size.x, size.y);
+  }
+
+  public setBuildingFloors(uuid: string, floors: number) {
+    const building = this.buildings.find((building) => building.object.uuid === uuid);
+
+    if (!building) return;
+
+    building.setFloors(floors);
+  }
+
+  public setBuildingFloorHeight(uuid: string, floorHeight: number) {
+    const building = this.buildings.find((building) => building.object.uuid === uuid);
+
+    if (!building) return;
+
+    building.setFloorHeight(floorHeight);
+  }
+
   public destroy() {
-    this.buildings.forEach((building) => building.dispose(this.scene));
-    Building.dispose();
+    this.buildings.forEach((building) => building.destroy());
+    this.buildings = [];
+    Building.reset();
     this.controls.dispose();
     this.renderer.dispose();
   }

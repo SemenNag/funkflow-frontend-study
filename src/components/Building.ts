@@ -1,16 +1,11 @@
 import {
-  Box3,
-  BoxGeometry,
-  EdgesGeometry,
   Group,
-  LineBasicMaterial,
-  LineSegments,
-  Mesh,
-  MeshBasicMaterial,
   Scene, Vector3
 } from 'three';
 import { disposeGroup } from '../utils/disposeGroup.ts';
 import { BuildingInfo } from '../types';
+import { Floor } from './Floor.ts';
+import { ActiveBuildingEdges } from './ActiveBuildingEdges.ts';
 
 export class Building {
   private static nextBuildingNumber = 1;
@@ -19,22 +14,24 @@ export class Building {
     width: number;
     depth: number;
   };
-  private floors: number;
-  private floorHeight: number;
+  private floors: Floor[];
+  private floorsCount: number;
+  private floorsHeight: number;
   private position: {
     x: number;
     z: number;
   };
   private readonly buildingGroup: Group;
-  private buildingEdges: Group | null;
+  private buildingEdges: ActiveBuildingEdges | null;
 
   constructor() {
     this.size = {
       width: 6,
       depth: 6,
     };
-    this.floors = 3;
-    this.floorHeight = 3;
+    this.floors = [];
+    this.floorsCount = 3;
+    this.floorsHeight = 3;
     this.position = {
       x: 0,
       z: 0,
@@ -48,123 +45,133 @@ export class Building {
     return `Building ${Building.nextBuildingNumber++}`;
   }
 
-  public get threeObject() {
+  public get object() {
     return this.buildingGroup;
+  }
+
+  public get uuid() {
+    return this.buildingGroup.uuid;
   }
 
   public get buildingInfo(): BuildingInfo {
     return {
       size: { x: this.size.width, y: this.size.depth },
-      floors: this.floors,
-      floorsHeight: this.floorHeight,
+      floors: this.floorsCount,
+      floorsHeight: this.floorsHeight,
       name: this.name,
+      uuid: this.uuid,
     };
   }
 
   public setSize(x: number, y: number) {
     this.size.width = x;
     this.size.depth = y;
+    this.floors.forEach((floor) => floor.updateSize({
+      x: this.size.width,
+      y: this.floorsHeight,
+      z: this.size.depth,
+    }));
+
+    if (this.buildingEdges) {
+      this.buildingEdges.update();
+    }
   }
 
   public setFloors(count: number) {
-    this.floors = count;
+    if (count < 1) return;
+
+    if (count > this.floorsCount) {
+      const newFloors = count - this.floorsCount;
+      const startYPosition = this.floorsCount * this.floorsHeight;
+
+      for (let i = 0; i < newFloors; i++) {
+        const floor = new Floor(
+          {
+            x: this.size.width,
+            y: this.floorsHeight,
+            z: this.size.depth,
+          },
+          new Vector3(this.position.x, i * this.floorsHeight + this.floorsHeight / 2 + startYPosition, this.position.z),
+          this.uuid,
+        );
+
+        floor.render(this.buildingGroup);
+        this.floors.push(floor);
+      }
+    } else {
+      let floorsToDelete = this.floorsCount - count;
+
+      for (let i = this.floors.length - 1; floorsToDelete > 0; floorsToDelete--, i--) {
+        this.floors[i].destroy();
+      }
+
+      this.floors = this.floors.slice(0, count);
+    }
+
+    if (this.buildingEdges) {
+      this.buildingEdges.update();
+    }
+
+    this.floorsCount = count;
   }
 
   public setFloorHeight(height: number) {
-    this.floorHeight = height;
+    this.floorsHeight = height;
+    this.floors.forEach((floor, index) => floor.updateSize(
+      {
+        x: this.size.width,
+        y: this.floorsHeight,
+        z: this.size.depth,
+      },
+      new Vector3(this.position.x, index * this.floorsHeight + this.floorsHeight / 2, this.position.z),
+    ));
+
+    if (this.buildingEdges) {
+      this.buildingEdges.update();
+    }
   }
 
   public setIsActive(value: boolean) {
     if (value) {
-      this.buildingEdges = this.createBuildingEdges();
-
-      this.buildingGroup.add(this.buildingEdges);
+      this.buildingEdges = new ActiveBuildingEdges(this.buildingGroup);
+      this.buildingEdges.render(this.buildingGroup);
+      this.buildingGroup.add(this.buildingEdges.object);
       return;
     }
 
     if (this.buildingEdges) {
-      disposeGroup(this.buildingEdges);
-      this.buildingEdges.clear();
-      this.buildingGroup.remove(this.buildingEdges);
+      this.buildingEdges.destroy();
       this.buildingEdges = null;
     }
   }
 
   public render(scene: Scene) {
-    const floorGeometry = new BoxGeometry(this.size.width, this.floorHeight, this.size.depth);
-    const floorMaterial = new MeshBasicMaterial({ color: 0xf1f3f5 });
-    const floorEdgeGeometry = new EdgesGeometry(floorGeometry);
-    const floorEdgeMaterial = new LineBasicMaterial({ color: 0x868e96 });
+    for (let i = 0; i < this.floorsCount; i++) {
+      const floor = new Floor(
+        { x: this.size.width, y: this.floorsHeight, z: this.size.depth },
+        new Vector3(this.position.x, i * this.floorsHeight + this.floorsHeight / 2, this.position.z),
+        this.uuid,
+      );
 
-    for (let i = 0; i < this.floors; i++) {
-      const floor = new Mesh(floorGeometry, floorMaterial);
-      const floorEdge = new LineSegments(floorEdgeGeometry, floorEdgeMaterial);
-
-      floor.position.set(this.position.x, i * this.floorHeight + this.floorHeight / 2, this.position.z);
-      floorEdge.position.set(this.position.x, i * this.floorHeight + this.floorHeight / 2, this.position.z);
-
-      this.buildingGroup.add(floor);
-      this.buildingGroup.add(floorEdge);
+      floor.render(this.buildingGroup);
+      this.floors.push(floor);
     }
 
     scene.add(this.buildingGroup);
   }
 
-  private createBuildingEdges() {
-    const edgeMaterial = new LineBasicMaterial({ color: 0x228be6 });
-    const boundingBox = new Box3().setFromObject(this.buildingGroup);
-    const size = new Vector3();
-    const center = new Vector3();
-    const group = new Group();
-
-    boundingBox.getSize(size);
-    boundingBox.getCenter(center);
-
-    const boxGeometry = new BoxGeometry(size.x + 0.01, size.y + 0.01, size.z + 0.01);
-    const edgeGeometry = new EdgesGeometry(boxGeometry);
-    const edges = new LineSegments(edgeGeometry, edgeMaterial);
-
-    edges.position.set(center.x, center.y, center.z);
-
-    const cornerBoxMaterial = new MeshBasicMaterial({ color: 0x228be6 });
-    const cornerBoxGeometry = new BoxGeometry(0.3, 0.3, 0.3);
-    const cornerCoords = [
-      new Vector3(boundingBox.min.x, boundingBox.min.y, boundingBox.min.z),
-      new Vector3(boundingBox.min.x, boundingBox.min.y, boundingBox.max.z),
-      new Vector3(boundingBox.min.x, boundingBox.max.y, boundingBox.min.z),
-      new Vector3(boundingBox.min.x, boundingBox.max.y, boundingBox.max.z),
-      new Vector3(boundingBox.max.x, boundingBox.min.y, boundingBox.min.z),
-      new Vector3(boundingBox.max.x, boundingBox.min.y, boundingBox.max.z),
-      new Vector3(boundingBox.max.x, boundingBox.max.y, boundingBox.min.z),
-      new Vector3(boundingBox.max.x, boundingBox.max.y, boundingBox.max.z),
-    ];
-
-    for (const cornerCoord of cornerCoords) {
-      const cornerBox = new Mesh(cornerBoxGeometry, cornerBoxMaterial);
-
-      cornerBox.position.set(cornerCoord.x, cornerCoord.y, cornerCoord.z);
-      group.add(cornerBox);
-    }
-
-    group.add(edges);
-
-    return group;
-  }
-
-  public update() {
-    // TODO
-  }
-
-  public dispose(scene: Scene) {
+  public destroy() {
     if (this.buildingEdges) {
-      disposeGroup(this.buildingEdges);
-      this.buildingEdges.removeFromParent();
+      this.buildingEdges.destroy();
     }
+
+    this.floors.forEach((floor) => floor.destroy());
+    this.floors = [];
     disposeGroup(this.buildingGroup);
-    scene.remove(this.buildingGroup);
+    this.buildingGroup.removeFromParent();
   }
 
-  public static dispose() {
+  public static reset() {
     this.nextBuildingNumber = 1;
   }
 }

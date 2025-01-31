@@ -13,7 +13,7 @@ export function App() {
   const applicationRef = useRef<Application>();
   const [isOpen, setIsOpen] = useState(false);
   const [coords, setCoords] = useState<Dimension2D>({ x: 0, y: 0 });
-  const [buildingInfo, setBuildingInfo] = useState<BuildingInfo>({ floors: 0, floorsHeight: 0, name: '', size: { x: 0, y: 0 } });
+  const [buildingInfo, setBuildingInfo] = useState<BuildingInfo>();
 
   const handleOpenActiveBuildingPopover = useCallback((coords: Dimension2D, buildingInfo: BuildingInfo) => {
     setIsOpen(true);
@@ -42,6 +42,37 @@ export function App() {
     applicationRef.current.addBuilding();
   }, []);
 
+  const handleChangeBuildingSize = useCallback((uuid: string, size: Dimension2D) => {
+    if (buildingInfo) {
+      setBuildingInfo({
+        ...buildingInfo,
+        size,
+      });
+    }
+
+    applicationRef.current?.setBuildingSize(uuid, size);
+  }, [buildingInfo]);
+  const handleChangeBuildingFloors = useCallback((uuid: string, floors: number) => {
+    if (buildingInfo) {
+      setBuildingInfo({
+        ...buildingInfo,
+        floors,
+      });
+    }
+
+    applicationRef.current?.setBuildingFloors(uuid, floors);
+  }, [buildingInfo]);
+  const handleChangeBuildingFloorsHeight = useCallback((uuid: string, floorsHeight: number) => {
+    if (buildingInfo) {
+      setBuildingInfo({
+        ...buildingInfo,
+        floorsHeight,
+      })
+    }
+
+    applicationRef.current?.setBuildingFloorHeight(uuid, floorsHeight);
+  }, [buildingInfo]);
+
   return (
     <MantineProvider theme={theme}>
       <canvas className="three-app" ref={canvasRef}></canvas>
@@ -55,6 +86,9 @@ export function App() {
         buildingInfo={buildingInfo}
         coords={coords}
         isOpen={isOpen}
+        handleChangeBuildingSize={handleChangeBuildingSize}
+        handleChangeBuildingFloors={handleChangeBuildingFloors}
+        handleChangeBuildingFloorsHeight={handleChangeBuildingFloorsHeight}
       />
     </MantineProvider>
   );

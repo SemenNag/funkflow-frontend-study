@@ -3,7 +3,12 @@ export interface Dimension2D {
   y: number;
 }
 
+export interface Dimension3D extends Dimension2D {
+  z: number;
+}
+
 export interface BuildingInfo {
+  uuid: string;
   name: string;
   size: Dimension2D;
   floors: number;
