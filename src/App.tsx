@@ -23,6 +23,7 @@ export function App() {
   const handleCloseActiveBuildingPopover = useCallback(() => {
     setIsOpen(false);
     setCoords({ x: 0,y: 0 });
+    setBuildingInfo(undefined);
   }, []);
 
   useEffect(() => {
@@ -72,6 +73,9 @@ export function App() {
 
     applicationRef.current?.setBuildingFloorHeight(uuid, floorsHeight);
   }, [buildingInfo]);
+  const handleDeleteBuilding = useCallback(() => {
+    applicationRef.current?.deleteActiveBuilding();
+  }, []);
 
   return (
     <MantineProvider theme={theme}>
@@ -89,6 +93,7 @@ export function App() {
         handleChangeBuildingSize={handleChangeBuildingSize}
         handleChangeBuildingFloors={handleChangeBuildingFloors}
         handleChangeBuildingFloorsHeight={handleChangeBuildingFloorsHeight}
+        handleClickDeleteBuilding={handleDeleteBuilding}
       />
     </MantineProvider>
   );

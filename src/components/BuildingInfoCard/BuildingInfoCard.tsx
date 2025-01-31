@@ -9,6 +9,7 @@ interface BuildingInfoCardProps {
   handleChangeBuildingSize: (uuid: string, size: Dimension2D) => void;
   handleChangeBuildingFloors: (uuid: string, floors: number) => void;
   handleChangeBuildingFloorsHeight: (uuid: string, floorsHeight: number) => void;
+  handleClickDeleteBuilding: () => void;
 }
 
 export function BuildingInfoCard({
@@ -18,7 +19,8 @@ export function BuildingInfoCard({
   handleChangeBuildingSize,
   handleChangeBuildingFloors,
   handleChangeBuildingFloorsHeight,
- }: BuildingInfoCardProps) {
+  handleClickDeleteBuilding,
+}: BuildingInfoCardProps) {
   if (!isOpen || !buildingInfo) return null;
 
   const handleChangeSizeX = (value: number | string) => {
@@ -47,7 +49,7 @@ export function BuildingInfoCard({
       <Card.Section px="xs" pt="md">
         <Group justify="space-between">
           <Text size="md" fw={500}>{ buildingInfo.name }</Text>
-          <ActionIcon variant="transparent" color="red">
+          <ActionIcon variant="transparent" color="red" onClick={handleClickDeleteBuilding}>
             <TrashIcon size={20} />
           </ActionIcon>
         </Group>

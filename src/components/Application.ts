@@ -67,8 +67,17 @@ export class Application {
     this.buildings.push(building);
   }
 
-  public deleteBuilding() {
-    // TODO
+  public deleteActiveBuilding() {
+    if (!this.activeBuilding) return;
+
+    const index = this.buildings.findIndex((building) => building.uuid === this.activeBuilding?.uuid);
+
+    if (index === -1) return;
+
+    this.buildings.splice(index, 1);
+    this.activeBuilding.destroy();
+    this.activeBuilding = null;
+    this.handlers.handleCloseActiveBuildingPopover();
   }
 
   public selectBuildingByClick(event: PointerEvent) {
