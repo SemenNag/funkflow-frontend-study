@@ -3,13 +3,20 @@ import {
   WebGLRenderer,
   Scene,
   Color,
-  Vector3, Raycaster, Vector2,
+  Vector3,
+  Raycaster,
+  Vector2,
+  Group,
+  Box3,
 } from 'three';
 import { Ground } from './Ground.ts';
 import { Building } from './Building.ts';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { convertToScreenPosition } from '../utils/convertToScreenPosition.ts';
 import { BuildingInfo, Dimension2D } from '../types';
+import { normalizeCoords } from '../utils/normalizeCoords.ts';
+import { DragControls } from 'three/addons/controls/DragControls.js';
+import { getBboxCorners } from '../utils/getBboxCorners.ts';
 
 interface Handlers {
   handleOpenActiveBuildingPopover: (coords: Dimension2D, buildingInfo: BuildingInfo) => void;
@@ -22,10 +29,16 @@ export class Application {
   private readonly scene: Scene;
   private readonly controls: OrbitControls;
 
-  private buildings: Building[] = [];
+  private buildings: Building[];
   private activeBuilding: Building | null = null;
-  private canvas: HTMLCanvasElement;
+  private readonly canvas: HTMLCanvasElement;
   private handlers: Handlers;
+
+  private raycaster: Raycaster;
+  private dragControls: DragControls | undefined;
+
+  private handlePointerDownRef: ((event: PointerEvent) => void);
+  private handlePointerUpRef: ((event: PointerEvent) => void);
 
   constructor(canvas: HTMLCanvasElement, handlers: Handlers) {
     this.scene = new Scene();
@@ -35,10 +48,18 @@ export class Application {
     this.canvas = canvas;
     this.handlers = handlers;
 
-    this.init();
+    this.buildings = [];
+    this.raycaster = new Raycaster();
+
+    this.handlePointerDownRef = this.handlePointerDown.bind(this);
+    this.handlePointerUpRef = this.handlePointerUp.bind(this);
+    this.canvas.addEventListener('pointerdown', this.handlePointerDownRef);
+    this.canvas.addEventListener('pointerup', this.handlePointerUpRef);
+
+    this.render();
   }
 
-  private init() {
+  private render() {
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.camera.position.set(15, 18, 15);
     this.controls.update();
@@ -47,7 +68,7 @@ export class Application {
 
     new Ground(500, 500, 2).render(this.scene);
     this.addBuilding(); // Create default building
-    this.trackBuildingClick();
+    this.updateDragControls();
     this.renderer.setAnimationLoop(this.update.bind(this));
   }
 
@@ -56,46 +77,19 @@ export class Application {
     this.renderer.render(this.scene, this.camera);
   }
 
-  private trackBuildingClick() {
-    this.canvas.addEventListener('pointerdown', this.selectBuildingByClick.bind(this));
-  }
-
-  public addBuilding() {
-    const building = new Building();
-
-    building.render(this.scene);
-    this.buildings.push(building);
-  }
-
-  public deleteActiveBuilding() {
-    if (!this.activeBuilding) return;
-
-    const index = this.buildings.findIndex((building) => building.uuid === this.activeBuilding?.uuid);
-
-    if (index === -1) return;
-
-    this.buildings.splice(index, 1);
-    this.activeBuilding.destroy();
-    this.activeBuilding = null;
-    this.handlers.handleCloseActiveBuildingPopover();
-  }
-
-  public selectBuildingByClick(event: PointerEvent) {
+  private handlePointerDown(event: PointerEvent) {
     if (this.activeBuilding) {
       this.activeBuilding.setIsActive(false);
-      this.handlers.handleCloseActiveBuildingPopover();
+      this.closeActiveBuildingPopover();
+      this.activeBuilding = null;
     }
 
-    const normalizedX = (event.clientX / window.innerWidth) * 2 - 1;
-    const normalizedY = -(event.clientY / window.innerHeight) * 2 + 1;
+    const { x, y } = normalizeCoords(event.clientX, event.clientY, this.canvas);
 
-    const raycaster = new Raycaster();
-    const mousePosition = new Vector2(normalizedX, normalizedY);
-
-    raycaster.setFromCamera(mousePosition, this.camera);
+    this.raycaster.setFromCamera(new Vector2(x, y), this.camera);
 
     const buildingObjects = this.buildings.map((building) => building.object);
-    const intersections = raycaster.intersectObjects(buildingObjects, true);
+    const intersections = this.raycaster.intersectObjects(buildingObjects, true);
 
     if (intersections.length === 0) return;
 
@@ -108,41 +102,104 @@ export class Application {
     const building = this.buildings.find((building) => building.object.uuid === intersectedBuildingId);
 
     this.activeBuilding = building ?? null;
+    this.activeBuilding?.setIsActive(true);
+    this.openActiveBuildingPopover();
+  }
 
-    if (this.activeBuilding) {
-      this.activeBuilding.setIsActive(true);
-      const coords = convertToScreenPosition(
-        this.activeBuilding.object,
-        this.camera,
-        this.renderer.domElement.clientWidth,
-        this.renderer.domElement.clientHeight,
-      );
-      this.handlers.handleOpenActiveBuildingPopover(coords, this.activeBuilding.buildingInfo);
+  private handlePointerUp() {
+    if (this.dragControls && this.activeBuilding) {
+      this.dragControls.dispatchEvent({ type: 'dragend', object: this.activeBuilding.object });
     }
   }
 
-  public setBuildingSize(uuid: string, size: Dimension2D) {
-    const building = this.buildings.find((building) => building.object.uuid === uuid);
+  private openActiveBuildingPopover() {
+    if (!this.activeBuilding) return;
 
-    if (!building) return;
+    const bbox = new Box3().setFromObject(this.activeBuilding.object);
+    const cornersCoordsOnScreen = getBboxCorners(bbox.min, bbox.max)
+      .map((coords) => convertToScreenPosition(coords, this.camera, this.canvas.clientWidth, this.canvas.clientHeight));
 
-    building.setSize(size.x, size.y);
+    // Find the most right X coordinate
+    const { x } = cornersCoordsOnScreen.reduce((mostRightPoint, point) => {
+        if (mostRightPoint.x < point.x) return point;
+
+        return mostRightPoint;
+    });
+
+    // Find average Y coordinate
+    const sum = cornersCoordsOnScreen.reduce((sum, coords) => {
+      return sum + coords.y;
+    }, 0);
+    const y = sum / 8;
+
+    this.handlers.handleOpenActiveBuildingPopover({ x, y }, this.activeBuilding.buildingInfo);
   }
 
-  public setBuildingFloors(uuid: string, floors: number) {
-    const building = this.buildings.find((building) => building.object.uuid === uuid);
-
-    if (!building) return;
-
-    building.setFloors(floors);
+  private closeActiveBuildingPopover() {
+    this.handlers.handleCloseActiveBuildingPopover();
   }
 
-  public setBuildingFloorHeight(uuid: string, floorHeight: number) {
-    const building = this.buildings.find((building) => building.object.uuid === uuid);
+  private updateDragControls() {
+    if (this.dragControls) {
+      this.dragControls.dispose();
+    }
 
-    if (!building) return;
+    this.dragControls = new DragControls(this.buildings.map((build) => build.object), this.camera, this.canvas);
+    this.dragControls.transformGroup = true;
+    this.dragControls.addEventListener('dragstart', () => {
+      this.controls.enabled = false;
+    });
+    this.dragControls.addEventListener('drag', ({ object }) => {
+      this.closeActiveBuildingPopover();
+      if (object instanceof Group) {
+        object.position.y = 0;
+      }
+    });
+    this.dragControls.addEventListener('dragend', () => {
+      this.controls.enabled = true;
+      this.openActiveBuildingPopover();
+    });
+  }
 
-    building.setFloorHeight(floorHeight);
+  public addBuilding() {
+    const building = new Building();
+
+    building.render(this.scene);
+    this.buildings.push(building);
+
+    this.updateDragControls();
+  }
+
+  public deleteActiveBuilding() {
+    if (!this.activeBuilding) return;
+
+    const index = this.buildings.findIndex((building) => building.uuid === this.activeBuilding?.uuid);
+
+    if (index === -1) return;
+
+    this.buildings.splice(index, 1);
+    this.activeBuilding.destroy();
+    this.activeBuilding = null;
+    this.closeActiveBuildingPopover();
+    this.updateDragControls();
+  }
+
+  public setActiveBuildingSize(size: Dimension2D) {
+    if (!this.activeBuilding) return;
+
+    this.activeBuilding.setSize(size.x, size.y);
+  }
+
+  public setActiveBuildingFloors(floors: number) {
+    if (!this.activeBuilding) return;
+
+    this.activeBuilding.setFloors(floors);
+  }
+
+  public setActiveBuildingFloorsHeight(floorHeight: number) {
+    if (!this.activeBuilding) return;
+
+    this.activeBuilding.setFloorsHeight(floorHeight);
   }
 
   public destroy() {
@@ -150,6 +207,10 @@ export class Application {
     this.buildings = [];
     Building.reset();
     this.controls.dispose();
+    if (this.dragControls) this.dragControls.dispose();
     this.renderer.dispose();
+
+    this.canvas.removeEventListener('pointerdown', this.handlePointerDownRef);
+    this.canvas.removeEventListener('pointerup', this.handlePointerUpRef);
   }
 }

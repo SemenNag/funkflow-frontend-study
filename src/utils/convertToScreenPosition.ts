@@ -1,18 +1,20 @@
-import { Object3D, PerspectiveCamera, Vector3 } from 'three';
+import { PerspectiveCamera, Vector3 } from 'three';
 
-export function convertToScreenPosition(object: Object3D, camera: PerspectiveCamera, width: number, height: number) {
-  const vector = new Vector3();
-
-  // Get object's world position
-  vector.setFromMatrixPosition(object.matrixWorld);
-
+/**
+ * Converts 3D NDC coordinates to screen position coordinates
+ * @param vector
+ * @param camera
+ * @param width
+ * @param height
+ */
+export function convertToScreenPosition(vector: Vector3, camera: PerspectiveCamera, width: number, height: number) {
   // Convert world position to screen space
   vector.project(camera);
 
-  // Convert normalized device coordinates to pixel coordinates
   const halfWidth = width / 2;
   const halfHeight = height / 2;
 
+  // Convert normalized device coordinates to pixel coordinates
   return {
     x: (vector.x * halfWidth) + halfWidth,
     y: (-vector.y * halfHeight) + halfHeight

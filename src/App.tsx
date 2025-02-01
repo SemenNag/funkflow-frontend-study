@@ -43,7 +43,7 @@ export function App() {
     applicationRef.current.addBuilding();
   }, []);
 
-  const handleChangeBuildingSize = useCallback((uuid: string, size: Dimension2D) => {
+  const handleChangeBuildingSize = useCallback((size: Dimension2D) => {
     if (buildingInfo) {
       setBuildingInfo({
         ...buildingInfo,
@@ -51,9 +51,9 @@ export function App() {
       });
     }
 
-    applicationRef.current?.setBuildingSize(uuid, size);
+    applicationRef.current?.setActiveBuildingSize(size);
   }, [buildingInfo]);
-  const handleChangeBuildingFloors = useCallback((uuid: string, floors: number) => {
+  const handleChangeBuildingFloors = useCallback((floors: number) => {
     if (buildingInfo) {
       setBuildingInfo({
         ...buildingInfo,
@@ -61,9 +61,9 @@ export function App() {
       });
     }
 
-    applicationRef.current?.setBuildingFloors(uuid, floors);
+    applicationRef.current?.setActiveBuildingFloors(floors);
   }, [buildingInfo]);
-  const handleChangeBuildingFloorsHeight = useCallback((uuid: string, floorsHeight: number) => {
+  const handleChangeBuildingFloorsHeight = useCallback((floorsHeight: number) => {
     if (buildingInfo) {
       setBuildingInfo({
         ...buildingInfo,
@@ -71,7 +71,7 @@ export function App() {
       })
     }
 
-    applicationRef.current?.setBuildingFloorHeight(uuid, floorsHeight);
+    applicationRef.current?.setActiveBuildingFloorsHeight(floorsHeight);
   }, [buildingInfo]);
   const handleDeleteBuilding = useCallback(() => {
     applicationRef.current?.deleteActiveBuilding();
@@ -80,12 +80,13 @@ export function App() {
   return (
     <MantineProvider theme={theme}>
       <canvas className="three-app" ref={canvasRef}></canvas>
-      <Button
-        leftSection={<PlusIcon />}
-        onClick={handleAddBuilding}
-        className="add-building-button"
-        variant="white"
-      >Building</Button>
+      <div className="add-building-button-wrapper">
+        <Button
+          leftSection={<PlusIcon />}
+          onClick={handleAddBuilding}
+          variant="white"
+        >Building</Button>
+      </div>
       <BuildingInfoCard
         buildingInfo={buildingInfo}
         coords={coords}

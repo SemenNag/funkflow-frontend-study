@@ -10,6 +10,8 @@ import {
   Vector3
 } from 'three';
 import { disposeGroup } from '../utils/disposeGroup.ts';
+import { convertToRelativeCoords } from '../utils/convertToRelativeCoords.ts';
+import { getBboxCorners } from '../utils/getBboxCorners.ts';
 
 export class ActiveBuildingEdges {
   private readonly parent: Object3D;
@@ -35,16 +37,9 @@ export class ActiveBuildingEdges {
   }
 
   private get cornerCoords() {
-    return [
-      new Vector3(this.bbox.min.x, this.bbox.min.y, this.bbox.min.z),
-      new Vector3(this.bbox.min.x, this.bbox.min.y, this.bbox.max.z),
-      new Vector3(this.bbox.min.x, this.bbox.max.y, this.bbox.min.z),
-      new Vector3(this.bbox.min.x, this.bbox.max.y, this.bbox.max.z),
-      new Vector3(this.bbox.max.x, this.bbox.min.y, this.bbox.min.z),
-      new Vector3(this.bbox.max.x, this.bbox.min.y, this.bbox.max.z),
-      new Vector3(this.bbox.max.x, this.bbox.max.y, this.bbox.min.z),
-      new Vector3(this.bbox.max.x, this.bbox.max.y, this.bbox.max.z),
-    ];
+    const { min, max } = convertToRelativeCoords(this.bboxSize);
+
+    return getBboxCorners(min, max);
   }
 
   private get bboxSize() {
@@ -60,10 +55,14 @@ export class ActiveBuildingEdges {
 
     this.bbox.getCenter(center);
 
+    // make XZ coords zero as relative coords to Building Group
+    center.x = 0;
+    center.z = 0;
+
     return center;
   }
 
-  public render(parent: Object3D) {
+  public render() {
     const material = new LineBasicMaterial({ color: 0x228be6 });
     const size = this.bboxSize;
     const center = this.bboxCenter;
@@ -86,7 +85,7 @@ export class ActiveBuildingEdges {
       this.group.add(cornerBox);
     }
 
-    parent.add(this.group);
+    this.parent.add(this.group);
   }
 
   public update() {

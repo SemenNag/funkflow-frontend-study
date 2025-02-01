@@ -1,15 +1,15 @@
 import {
   Group,
-  Scene, Vector3
+  Scene,
+  Vector3
 } from 'three';
-import { disposeGroup } from '../utils/disposeGroup.ts';
 import { BuildingInfo } from '../types';
 import { Floor } from './Floor.ts';
 import { ActiveBuildingEdges } from './ActiveBuildingEdges.ts';
 
 export class Building {
   private static nextBuildingNumber = 1;
-  private name: string;
+  private readonly name: string;
   private size: {
     width: number;
     depth: number;
@@ -17,10 +17,6 @@ export class Building {
   private floors: Floor[];
   private floorsCount: number;
   private floorsHeight: number;
-  private position: {
-    x: number;
-    z: number;
-  };
   private readonly buildingGroup: Group;
   private buildingEdges: ActiveBuildingEdges | null;
 
@@ -32,10 +28,6 @@ export class Building {
     this.floors = [];
     this.floorsCount = 3;
     this.floorsHeight = 3;
-    this.position = {
-      x: 0,
-      z: 0,
-    };
     this.buildingGroup = new Group();
     this.buildingEdges = null;
     this.name = Building.getNextBuildingName();
@@ -47,6 +39,10 @@ export class Building {
 
   public get object() {
     return this.buildingGroup;
+  }
+
+  public get edges() {
+    return this.buildingEdges;
   }
 
   public get uuid() {
@@ -91,7 +87,7 @@ export class Building {
             y: this.floorsHeight,
             z: this.size.depth,
           },
-          new Vector3(this.position.x, i * this.floorsHeight + this.floorsHeight / 2 + startYPosition, this.position.z),
+          new Vector3(0, i * this.floorsHeight + this.floorsHeight / 2 + startYPosition, 0),
           this.uuid,
         );
 
@@ -115,7 +111,7 @@ export class Building {
     this.floorsCount = count;
   }
 
-  public setFloorHeight(height: number) {
+  public setFloorsHeight(height: number) {
     this.floorsHeight = height;
     this.floors.forEach((floor, index) => floor.updateSize(
       {
@@ -123,7 +119,7 @@ export class Building {
         y: this.floorsHeight,
         z: this.size.depth,
       },
-      new Vector3(this.position.x, index * this.floorsHeight + this.floorsHeight / 2, this.position.z),
+      new Vector3(0, index * this.floorsHeight + this.floorsHeight / 2, 0),
     ));
 
     if (this.buildingEdges) {
@@ -134,7 +130,7 @@ export class Building {
   public setIsActive(value: boolean) {
     if (value) {
       this.buildingEdges = new ActiveBuildingEdges(this.buildingGroup);
-      this.buildingEdges.render(this.buildingGroup);
+      this.buildingEdges.render();
       this.buildingGroup.add(this.buildingEdges.object);
       return;
     }
@@ -149,13 +145,14 @@ export class Building {
     for (let i = 0; i < this.floorsCount; i++) {
       const floor = new Floor(
         { x: this.size.width, y: this.floorsHeight, z: this.size.depth },
-        new Vector3(this.position.x, i * this.floorsHeight + this.floorsHeight / 2, this.position.z),
+        new Vector3(0, i * this.floorsHeight + this.floorsHeight / 2, 0),
         this.uuid,
       );
 
       floor.render(this.buildingGroup);
       this.floors.push(floor);
     }
+
 
     scene.add(this.buildingGroup);
   }
@@ -167,7 +164,6 @@ export class Building {
 
     this.floors.forEach((floor) => floor.destroy());
     this.floors = [];
-    disposeGroup(this.buildingGroup);
     this.buildingGroup.removeFromParent();
   }
 

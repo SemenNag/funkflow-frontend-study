@@ -6,9 +6,9 @@ interface BuildingInfoCardProps {
   coords: Dimension2D;
   isOpen: boolean;
   buildingInfo?: BuildingInfo;
-  handleChangeBuildingSize: (uuid: string, size: Dimension2D) => void;
-  handleChangeBuildingFloors: (uuid: string, floors: number) => void;
-  handleChangeBuildingFloorsHeight: (uuid: string, floorsHeight: number) => void;
+  handleChangeBuildingSize: (size: Dimension2D) => void;
+  handleChangeBuildingFloors: (floors: number) => void;
+  handleChangeBuildingFloorsHeight: (floorsHeight: number) => void;
   handleClickDeleteBuilding: () => void;
 }
 
@@ -24,24 +24,24 @@ export function BuildingInfoCard({
   if (!isOpen || !buildingInfo) return null;
 
   const handleChangeSizeX = (value: number | string) => {
-    handleChangeBuildingSize(buildingInfo.uuid, { x: Number(value), y: buildingInfo.size.y });
+    handleChangeBuildingSize({ x: Number(value), y: buildingInfo.size.y });
   };
   const handleChangeSizeY = (value: number | string) => {
-    handleChangeBuildingSize(buildingInfo.uuid, { x: buildingInfo.size.x, y: Number(value) });
+    handleChangeBuildingSize({ x: buildingInfo.size.x, y: Number(value) });
   };
   const handleChangeFloors = (value: number | string) => {
-    handleChangeBuildingFloors(buildingInfo.uuid, Number(value));
+    handleChangeBuildingFloors(Number(value));
   };
   const handleChangeFloorsHeight = (value: number | string) => {
-    handleChangeBuildingFloorsHeight(buildingInfo.uuid, Number(value));
+    handleChangeBuildingFloorsHeight(Number(value));
   };
 
   return (
     <Card
       top={`${coords.y}px`}
-      left={`${coords.x}px`}
+      left={`${coords.x + 50}px`}
       pos="absolute"
-      style={{ zIndex: 1000, gap: '8px' }}
+      style={{ zIndex: 1000, gap: '8px', transform: 'translateY(-50%)' }}
       withBorder
       radius="sm"
       w="270"

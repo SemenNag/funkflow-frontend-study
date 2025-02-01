@@ -3,11 +3,18 @@
     height: 100vh;
 }
 
-.add-building-button {
+.add-building-button-wrapper {
     position: fixed;
-    left: 50%;
-    transform: translate(-50%);
-    bottom: 20px;
+    width: 100%;
+    height: fit-content;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    justify-content: center;
+    padding-bottom: 20px;
+}
+
+.add-building-button-wrapper button {
     box-shadow: 0 20px 25px -5px black;
 }
 
