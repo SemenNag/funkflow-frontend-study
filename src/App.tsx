@@ -1,7 +1,9 @@
-import './App.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Application } from './components/Application.ts';
 import { Button, createTheme, MantineProvider } from '@mantine/core';
+
+import './App.css';
+
+import { Application, ApplicationEventMap } from './classes/Application.ts';
 import { PlusIcon } from './icons/PlusIcon.tsx';
 import { BuildingInfoCard } from './components/BuildingInfoCard/BuildingInfoCard.tsx';
 import { BuildingInfo, Dimension2D } from './types';
@@ -15,7 +17,7 @@ export function App() {
   const [coords, setCoords] = useState<Dimension2D>({ x: 0, y: 0 });
   const [buildingInfo, setBuildingInfo] = useState<BuildingInfo>();
 
-  const handleOpenActiveBuildingPopover = useCallback((coords: Dimension2D, buildingInfo: BuildingInfo) => {
+  const handleOpenActiveBuildingPopover = useCallback(({ coords, buildingInfo }: ApplicationEventMap['setActiveBuilding']) => {
     setIsOpen(true);
     setCoords(coords);
     setBuildingInfo(buildingInfo);
@@ -25,16 +27,26 @@ export function App() {
     setCoords({ x: 0,y: 0 });
     setBuildingInfo(undefined);
   }, []);
+  const handleUpdateBuildingInfo = useCallback(({ buildingInfo }: ApplicationEventMap['activeBuildingInfoUpdated']) => {
+    setBuildingInfo(buildingInfo);
+  }, []);
 
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    applicationRef.current = new Application(canvasRef.current, {
-      handleOpenActiveBuildingPopover,
-      handleCloseActiveBuildingPopover,
-    });
+    applicationRef.current = new Application(canvasRef.current);
 
-    return () => applicationRef.current?.destroy();
+    applicationRef.current.addEventListener('setActiveBuilding', handleOpenActiveBuildingPopover);
+    applicationRef.current.addEventListener('unsetActiveBuilding', handleCloseActiveBuildingPopover);
+    applicationRef.current.addEventListener('activeBuildingInfoUpdated', handleUpdateBuildingInfo);
+
+    return () => {
+      applicationRef.current?.removeEventListener('setActiveBuilding', handleOpenActiveBuildingPopover);
+      applicationRef.current?.removeEventListener('unsetActiveBuilding', handleCloseActiveBuildingPopover);
+      applicationRef.current?.removeEventListener('activeBuildingInfoUpdated', handleUpdateBuildingInfo);
+      applicationRef.current?.destroy();
+      applicationRef.current = undefined;
+    }
   }, []);
 
   const handleAddBuilding = useCallback(() => {
@@ -44,33 +56,12 @@ export function App() {
   }, []);
 
   const handleChangeBuildingSize = useCallback((size: Dimension2D) => {
-    if (buildingInfo) {
-      setBuildingInfo({
-        ...buildingInfo,
-        size,
-      });
-    }
-
     applicationRef.current?.setActiveBuildingSize(size);
   }, [buildingInfo]);
   const handleChangeBuildingFloors = useCallback((floors: number) => {
-    if (buildingInfo) {
-      setBuildingInfo({
-        ...buildingInfo,
-        floors,
-      });
-    }
-
     applicationRef.current?.setActiveBuildingFloors(floors);
   }, [buildingInfo]);
   const handleChangeBuildingFloorsHeight = useCallback((floorsHeight: number) => {
-    if (buildingInfo) {
-      setBuildingInfo({
-        ...buildingInfo,
-        floorsHeight,
-      })
-    }
-
     applicationRef.current?.setActiveBuildingFloorsHeight(floorsHeight);
   }, [buildingInfo]);
   const handleDeleteBuilding = useCallback(() => {
@@ -79,7 +70,7 @@ export function App() {
 
   return (
     <MantineProvider theme={theme}>
-      <canvas className="three-app" ref={canvasRef}></canvas>
+      <canvas className="three-app" ref={canvasRef} />
       <div className="add-building-button-wrapper">
         <Button
           leftSection={<PlusIcon />}
@@ -87,15 +78,16 @@ export function App() {
           variant="white"
         >Building</Button>
       </div>
-      <BuildingInfoCard
-        buildingInfo={buildingInfo}
-        coords={coords}
-        isOpen={isOpen}
-        handleChangeBuildingSize={handleChangeBuildingSize}
-        handleChangeBuildingFloors={handleChangeBuildingFloors}
-        handleChangeBuildingFloorsHeight={handleChangeBuildingFloorsHeight}
-        handleClickDeleteBuilding={handleDeleteBuilding}
-      />
+      {isOpen && buildingInfo && (
+        <BuildingInfoCard
+          buildingInfo={buildingInfo}
+          coords={coords}
+          handleChangeBuildingSize={handleChangeBuildingSize}
+          handleChangeBuildingFloors={handleChangeBuildingFloors}
+          handleChangeBuildingFloorsHeight={handleChangeBuildingFloorsHeight}
+          handleClickDeleteBuilding={handleDeleteBuilding}
+        />
+      )}
     </MantineProvider>
   );
 }

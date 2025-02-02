@@ -8,22 +8,27 @@ import {
   Vector2,
   Group,
   Box3,
+  EventDispatcher,
 } from 'three';
-import { Ground } from './Ground.ts';
-import { Building } from './Building.ts';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { DragControls } from 'three/addons/controls/DragControls.js';
+
 import { convertToScreenPosition } from '../utils/convertToScreenPosition.ts';
 import { BuildingInfo, Dimension2D } from '../types';
 import { normalizeCoords } from '../utils/normalizeCoords.ts';
-import { DragControls } from 'three/addons/controls/DragControls.js';
-import { getBboxCorners } from '../utils/getBboxCorners.ts';
+import { getBboxCornersCoords } from '../utils/getBboxCornersCoords.ts';
 
-interface Handlers {
-  handleOpenActiveBuildingPopover: (coords: Dimension2D, buildingInfo: BuildingInfo) => void;
-  handleCloseActiveBuildingPopover: () => void;
+import { Ground } from './Ground.ts';
+import { Building } from './Building.ts';
+import { BuildingResizeControls } from './BuildingResizeControls.ts';
+
+export interface ApplicationEventMap {
+  setActiveBuilding: { coords: Dimension2D, buildingInfo: BuildingInfo };
+  unsetActiveBuilding: {};
+  activeBuildingInfoUpdated: { buildingInfo: BuildingInfo };
 }
 
-export class Application {
+export class Application extends EventDispatcher<ApplicationEventMap> {
   private readonly camera: PerspectiveCamera;
   private readonly renderer: WebGLRenderer;
   private readonly scene: Scene;
@@ -32,21 +37,22 @@ export class Application {
   private buildings: Building[];
   private activeBuilding: Building | null = null;
   private readonly canvas: HTMLCanvasElement;
-  private handlers: Handlers;
 
   private raycaster: Raycaster;
   private dragControls: DragControls | undefined;
+  private buildingResizeControls: BuildingResizeControls | undefined;
 
-  private handlePointerDownRef: ((event: PointerEvent) => void);
-  private handlePointerUpRef: ((event: PointerEvent) => void);
+  private readonly handlePointerDownRef: ((event: PointerEvent) => void);
+  private readonly handlePointerUpRef: ((event: PointerEvent) => void);
 
-  constructor(canvas: HTMLCanvasElement, handlers: Handlers) {
+  constructor(canvas: HTMLCanvasElement) {
+    super();
+
     this.scene = new Scene();
     this.camera = new PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
     this.renderer = new WebGLRenderer({ canvas, antialias: true });
     this.controls = new OrbitControls(this.camera, canvas);
     this.canvas = canvas;
-    this.handlers = handlers;
 
     this.buildings = [];
     this.raycaster = new Raycaster();
@@ -78,12 +84,6 @@ export class Application {
   }
 
   private handlePointerDown(event: PointerEvent) {
-    if (this.activeBuilding) {
-      this.activeBuilding.setIsActive(false);
-      this.closeActiveBuildingPopover();
-      this.activeBuilding = null;
-    }
-
     const { x, y } = normalizeCoords(event.clientX, event.clientY, this.canvas);
 
     this.raycaster.setFromCamera(new Vector2(x, y), this.camera);
@@ -91,7 +91,10 @@ export class Application {
     const buildingObjects = this.buildings.map((building) => building.object);
     const intersections = this.raycaster.intersectObjects(buildingObjects, true);
 
-    if (intersections.length === 0) return;
+    if (intersections.length === 0) {
+      this.resetActiveBuilding();
+      return;
+    }
 
     const intersectedBuildingIds = intersections
       .filter(({ object }) => !!object.userData.isPartOfBuilding)
@@ -101,9 +104,21 @@ export class Application {
     const intersectedBuildingId = [...new Set(intersectedBuildingIds).values()][0];
     const building = this.buildings.find((building) => building.object.uuid === intersectedBuildingId);
 
+    // Do nothing if intersected building already active
+    if (this.activeBuilding?.uuid === building?.uuid) return;
+
+    // Firstly reset previous active building
+    if (this.activeBuilding) {
+      this.resetActiveBuilding();
+    }
+
     this.activeBuilding = building ?? null;
-    this.activeBuilding?.setIsActive(true);
-    this.openActiveBuildingPopover();
+
+    if (this.activeBuilding) {
+      this.activeBuilding.setIsActive(true);
+      this.openActiveBuildingPopover();
+      this.updateBuildingResizeControls();
+    }
   }
 
   private handlePointerUp() {
@@ -116,7 +131,7 @@ export class Application {
     if (!this.activeBuilding) return;
 
     const bbox = new Box3().setFromObject(this.activeBuilding.object);
-    const cornersCoordsOnScreen = getBboxCorners(bbox.min, bbox.max)
+    const cornersCoordsOnScreen = getBboxCornersCoords(bbox.min, bbox.max)
       .map((coords) => convertToScreenPosition(coords, this.camera, this.canvas.clientWidth, this.canvas.clientHeight));
 
     // Find the most right X coordinate
@@ -132,11 +147,11 @@ export class Application {
     }, 0);
     const y = sum / 8;
 
-    this.handlers.handleOpenActiveBuildingPopover({ x, y }, this.activeBuilding.buildingInfo);
+    this.dispatchEvent({ type: 'setActiveBuilding', coords: { x, y }, buildingInfo: this.activeBuilding.buildingInfo });
   }
 
   private closeActiveBuildingPopover() {
-    this.handlers.handleCloseActiveBuildingPopover();
+    this.dispatchEvent({ type: 'unsetActiveBuilding' });
   }
 
   private updateDragControls() {
@@ -161,7 +176,62 @@ export class Application {
     });
   }
 
+  private updateBuildingResizeControls() {
+    if (this.buildingResizeControls) {
+      this.buildingResizeControls.dispose();
+    }
+
+    if (!this.activeBuilding || !this.activeBuilding.edges) return;
+
+    this.buildingResizeControls = new BuildingResizeControls(
+      this.activeBuilding.edges,
+      this.activeBuilding.buildingInfo.floorsHeight,
+      this.canvas,
+      this.camera,
+    );
+    this.buildingResizeControls.addEventListener('resizestart', () => {
+      this.controls.enabled = false;
+      this.dragControls?.dispose();
+    });
+    this.buildingResizeControls.addEventListener('resizeend', () => {
+      this.controls.enabled = true;
+      this.updateDragControls();
+    });
+    this.buildingResizeControls.addEventListener('resizewidth', ({ delta }) => {
+      if (!this.activeBuilding) return;
+
+      const newWidth = this.activeBuilding.buildingInfo.size.x + delta;
+
+      this.activeBuilding.setSize(newWidth, this.activeBuilding.buildingInfo.size.y);
+      this.dispatchEvent({ type: 'activeBuildingInfoUpdated', buildingInfo: this.activeBuilding.buildingInfo });
+    });
+    this.buildingResizeControls.addEventListener('resizedepth', ({ delta }) => {
+      if (!this.activeBuilding) return;
+
+      const newDepth = this.activeBuilding.buildingInfo.size.y + delta;
+
+      this.activeBuilding.setSize(this.activeBuilding.buildingInfo.size.x, newDepth);
+      this.dispatchEvent({ type: 'activeBuildingInfoUpdated', buildingInfo: this.activeBuilding.buildingInfo });
+    });
+    this.buildingResizeControls.addEventListener('resizefloors', ({ delta }) => {
+      if (!this.activeBuilding) return;
+
+      this.activeBuilding.setFloors(this.activeBuilding.buildingInfo.floors + delta);
+      this.dispatchEvent({ type: 'activeBuildingInfoUpdated', buildingInfo: this.activeBuilding.buildingInfo });
+    });
+  }
+
+  private resetActiveBuilding() {
+    if (!this.activeBuilding) return;
+
+    this.activeBuilding.setIsActive(false);
+    this.closeActiveBuildingPopover();
+    this.activeBuilding = null;
+  }
+
   public addBuilding() {
+    this.resetActiveBuilding();
+
     const building = new Building();
 
     building.render(this.scene);
@@ -179,8 +249,7 @@ export class Application {
 
     this.buildings.splice(index, 1);
     this.activeBuilding.destroy();
-    this.activeBuilding = null;
-    this.closeActiveBuildingPopover();
+    this.resetActiveBuilding();
     this.updateDragControls();
   }
 
@@ -188,18 +257,21 @@ export class Application {
     if (!this.activeBuilding) return;
 
     this.activeBuilding.setSize(size.x, size.y);
+    this.dispatchEvent({ type: 'activeBuildingInfoUpdated', buildingInfo: this.activeBuilding.buildingInfo });
   }
 
   public setActiveBuildingFloors(floors: number) {
     if (!this.activeBuilding) return;
 
     this.activeBuilding.setFloors(floors);
+    this.dispatchEvent({ type: 'activeBuildingInfoUpdated', buildingInfo: this.activeBuilding.buildingInfo });
   }
 
   public setActiveBuildingFloorsHeight(floorHeight: number) {
     if (!this.activeBuilding) return;
 
     this.activeBuilding.setFloorsHeight(floorHeight);
+    this.dispatchEvent({ type: 'activeBuildingInfoUpdated', buildingInfo: this.activeBuilding.buildingInfo });
   }
 
   public destroy() {

@@ -1,6 +1,10 @@
-import { LineSegments, Mesh } from 'three';
+import { Line, Mesh } from 'three';
 
-export function disposeObject(obj: Mesh | LineSegments) {
+/**
+ * Disposes all object resources that occupy GPU resources
+ * @param obj - object to dispose
+ */
+export function disposeObject(obj: Mesh | Line) {
   if (Array.isArray(obj.material)) {
     obj.material.forEach((mat) => mat.dispose());
   } else {

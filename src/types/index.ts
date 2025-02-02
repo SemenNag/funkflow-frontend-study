@@ -14,3 +14,7 @@ export interface BuildingInfo {
   floors: number;
   floorsHeight: number;
 }
+
+export interface IconProps {
+  size?: 20 | 24;
+}

@@ -1,4 +1,3 @@
-import { Dimension3D } from '../types';
 import {
   BoxGeometry,
   EdgesGeometry,
@@ -9,23 +8,23 @@ import {
   MeshBasicMaterial,
   Object3D, Vector3,
 } from 'three';
+
+import { Dimension3D } from '../types';
 import { disposeGroup } from '../utils/disposeGroup.ts';
 
 export class Floor {
   private size: Dimension3D;
-  private position: Vector3;
-  private group: Group;
-  private buildingId: string;
+  private readonly position: Vector3;
+  private readonly group: Group;
+  private readonly buildingId: string;
+  private edgesFloor: LineSegments | undefined;
+  private meshFloor: Mesh | undefined;
 
   constructor(size: Dimension3D, position: Vector3, buildingId: string) {
     this.size = size;
     this.group = new Group();
     this.position = position;
     this.buildingId = buildingId;
-  }
-
-  public get object() {
-    return this.group;
   }
 
   public render(parent: Object3D) {
@@ -36,6 +35,9 @@ export class Floor {
 
     const object = new Mesh(geometry, material);
     const edgesObject = new LineSegments(edgesGeometry, edgesMaterial);
+
+    this.meshFloor = object;
+    this.edgesFloor = edgesObject;
 
     object.userData.isPartOfBuilding = true;
     object.userData.buildingId = this.buildingId;
@@ -52,24 +54,27 @@ export class Floor {
   }
 
   public updateSize(size: Dimension3D, position?: Vector3) {
+    if (!this.meshFloor || !this.edgesFloor) return;
+
     const geometry = new BoxGeometry(size.x, size.y, size.z);
     const edgesGeometry = new EdgesGeometry(geometry);
 
-    (this.group.children[0] as Mesh).geometry.dispose();
-    (this.group.children[0] as Mesh).geometry = geometry;
+    this.meshFloor.geometry.dispose();
+    this.meshFloor.geometry = geometry;
 
-    if (position) (this.group.children[0] as Mesh).position.copy(position);
+    if (position) this.meshFloor.position.copy(position);
 
-    (this.group.children[1] as LineSegments).geometry.dispose();
-    (this.group.children[1] as LineSegments).geometry = edgesGeometry;
+    this.edgesFloor.geometry.dispose();
+    this.edgesFloor.geometry = edgesGeometry;
 
-    if (position) (this.group.children[1] as Mesh).position.copy(position);
+    if (position) this.edgesFloor.position.copy(position);
 
     this.size = size;
   }
 
   public destroy() {
     disposeGroup(this.group);
+    this.group.clear();
     this.group.removeFromParent();
   }
 }

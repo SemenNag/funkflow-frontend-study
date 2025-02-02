@@ -3,7 +3,9 @@ import {
   Scene,
   Vector3
 } from 'three';
+
 import { BuildingInfo } from '../types';
+
 import { Floor } from './Floor.ts';
 import { ActiveBuildingEdges } from './ActiveBuildingEdges.ts';
 
@@ -59,9 +61,11 @@ export class Building {
     };
   }
 
-  public setSize(x: number, y: number) {
-    this.size.width = x;
-    this.size.depth = y;
+  public setSize(width: number, depth: number) {
+    if (width < 1 || depth < 1) return;
+
+    this.size.width = width;
+    this.size.depth = depth;
     this.floors.forEach((floor) => floor.updateSize({
       x: this.size.width,
       y: this.floorsHeight,
@@ -96,22 +100,24 @@ export class Building {
       }
     } else {
       let floorsToDelete = this.floorsCount - count;
+      let i = this.floors.length - 1; // Start deletion from top to bottom floors
 
-      for (let i = this.floors.length - 1; floorsToDelete > 0; floorsToDelete--, i--) {
+      while (floorsToDelete > 0) {
         this.floors[i].destroy();
+        floorsToDelete--;
+        i--;
       }
 
       this.floors = this.floors.slice(0, count);
     }
 
-    if (this.buildingEdges) {
-      this.buildingEdges.update();
-    }
-
+    this.buildingEdges?.update();
     this.floorsCount = count;
   }
 
   public setFloorsHeight(height: number) {
+    if (height < 1) return;
+
     this.floorsHeight = height;
     this.floors.forEach((floor, index) => floor.updateSize(
       {
@@ -122,9 +128,7 @@ export class Building {
       new Vector3(0, index * this.floorsHeight + this.floorsHeight / 2, 0),
     ));
 
-    if (this.buildingEdges) {
-      this.buildingEdges.update();
-    }
+    this.buildingEdges?.update();
   }
 
   public setIsActive(value: boolean) {
@@ -135,10 +139,8 @@ export class Building {
       return;
     }
 
-    if (this.buildingEdges) {
-      this.buildingEdges.destroy();
-      this.buildingEdges = null;
-    }
+    this.buildingEdges?.destroy();
+    this.buildingEdges = null;
   }
 
   public render(scene: Scene) {
@@ -158,10 +160,7 @@ export class Building {
   }
 
   public destroy() {
-    if (this.buildingEdges) {
-      this.buildingEdges.destroy();
-    }
-
+    this.buildingEdges?.destroy();
     this.floors.forEach((floor) => floor.destroy());
     this.floors = [];
     this.buildingGroup.removeFromParent();

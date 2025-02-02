@@ -1,4 +1,4 @@
-import { IconProps } from './types.ts';
+import { IconProps } from '../types';
 
 export function PlusIcon({ size = 24 }: IconProps) {
   return (

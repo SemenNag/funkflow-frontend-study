@@ -1,6 +1,10 @@
 import { Vector3 } from 'three';
 
-export function convertToRelativeCoords(size: Vector3) {
+/**
+ * Returns min and max points of bbox relative to the origin
+ * @param size - size of bbox
+ */
+export function getBboxMinMaxPoints(size: Vector3) {
   const convertedMax = new Vector3();
   const convertedMin = new Vector3();
 

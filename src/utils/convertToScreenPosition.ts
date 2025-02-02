@@ -2,7 +2,7 @@ import { PerspectiveCamera, Vector3 } from 'three';
 
 /**
  * Converts 3D NDC coordinates to screen position coordinates
- * @param vector
+ * @param vector - a point that should be converted to screen coords
  * @param camera
  * @param width
  * @param height

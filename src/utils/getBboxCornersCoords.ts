@@ -1,6 +1,11 @@
 import { Vector3 } from 'three';
 
-export function getBboxCorners(min: Vector3, max: Vector3) {
+/**
+ * Returns 8 coords of corners of bbox represented by minimum and maximum points
+ * @param min - minimum point of bbox
+ * @param max - maximum point of bbox
+ */
+export function getBboxCornersCoords(min: Vector3, max: Vector3) {
   return [
     new Vector3(min.x, min.y, min.z), // farthest left lower corner
     new Vector3(min.x, min.y, max.z), // closest left lower corner

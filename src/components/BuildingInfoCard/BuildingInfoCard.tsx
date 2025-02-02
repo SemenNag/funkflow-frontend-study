@@ -4,25 +4,27 @@ import { BuildingInfo, Dimension2D } from '../../types';
 
 interface BuildingInfoCardProps {
   coords: Dimension2D;
-  isOpen: boolean;
-  buildingInfo?: BuildingInfo;
+  buildingInfo: BuildingInfo;
   handleChangeBuildingSize: (size: Dimension2D) => void;
   handleChangeBuildingFloors: (floors: number) => void;
   handleChangeBuildingFloorsHeight: (floorsHeight: number) => void;
   handleClickDeleteBuilding: () => void;
 }
 
+const style = {
+  zIndex: 1000,
+  gap: '8px',
+  transform: 'translateY(-50%)',
+};
+
 export function BuildingInfoCard({
   coords,
-  isOpen,
   buildingInfo,
   handleChangeBuildingSize,
   handleChangeBuildingFloors,
   handleChangeBuildingFloorsHeight,
   handleClickDeleteBuilding,
 }: BuildingInfoCardProps) {
-  if (!isOpen || !buildingInfo) return null;
-
   const handleChangeSizeX = (value: number | string) => {
     handleChangeBuildingSize({ x: Number(value), y: buildingInfo.size.y });
   };
@@ -41,14 +43,14 @@ export function BuildingInfoCard({
       top={`${coords.y}px`}
       left={`${coords.x + 50}px`}
       pos="absolute"
-      style={{ zIndex: 1000, gap: '8px', transform: 'translateY(-50%)' }}
+      style={style}
       withBorder
       radius="sm"
       w="270"
     >
       <Card.Section px="xs" pt="md">
         <Group justify="space-between">
-          <Text size="md" fw={500}>{ buildingInfo.name }</Text>
+          <Text size="md" fw={500}>{buildingInfo.name}</Text>
           <ActionIcon variant="transparent" color="red" onClick={handleClickDeleteBuilding}>
             <TrashIcon size={20} />
           </ActionIcon>
@@ -60,22 +62,22 @@ export function BuildingInfoCard({
           <Text size="xs" fw={500}>Size (m)</Text>
           <Group gap={8} flex="0 1" wrap="nowrap">
             <NumberInput
-              value={buildingInfo.size.x}
+              value={buildingInfo.size.x.toPrecision(3)}
               leftSection={<Text c="gray" size="xs">X</Text>}
               flex="0 1"
               size="xs"
               styles={{ wrapper: { minWidth: '80px' } }}
               onChange={handleChangeSizeX}
-              min={0}
+              min={1}
             />
             <NumberInput
-              value={buildingInfo.size.y}
+              value={buildingInfo.size.y.toPrecision(3)}
               leftSection={<Text c="gray" size="xs">Y</Text>}
               flex="0 1"
               size="xs"
               styles={{ wrapper: { minWidth: '80px' } }}
               onChange={handleChangeSizeY}
-              min={0}
+              min={1}
             />
           </Group>
         </Group>
