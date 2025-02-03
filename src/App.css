@@ -1,0 +1,25 @@
+.three-app {
+    width: 100vw;
+    height: 100vh;
+}
+
+.add-building-button-wrapper {
+    position: fixed;
+    width: 100%;
+    height: fit-content;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    justify-content: center;
+    padding-bottom: 20px;
+}
+
+.add-building-button-wrapper button {
+    box-shadow: 0 20px 25px -5px black;
+}
+
+.building-info-card {
+    position: absolute;
+    z-index: 1000;
+}
+
